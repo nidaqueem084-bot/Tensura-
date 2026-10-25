@@ -1,0 +1,73 @@
+
+name: Extrair mod Minecraft 1.12.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract-mod:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar ferramentas
+        run: sudo apt-get update && sudo apt-get install -y unzip
+
+      - name: Extrair e localizar JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p resultado
+          count=0
+
+          while IFS= read -r -d '' zipfile; do
+            echo "Examinando: $zipfile"
+
+            while IFS= read -r entry; do
+              case "$entry" in
+                *.jar|*.JAR)
+                  filename=$(basename "$entry")
+                  destination="resultado/$filename"
+
+                  if [ -e "$destination" ]; then
+                    echo "::error::JAR duplicado com o nome $filename"
+                    exit 1
+                  fi
+
+                  unzip -p "$zipfile" "$entry" > "$destination"
+
+                  if [ ! -s "$destination" ]; then
+                    echo "::error::JAR vazio: $filename"
+                    exit 1
+                  fi
+
+                  count=$((count + 1))
+                  echo "JAR extraído: $filename"
+                  ;;
+              esac
+            done < <(unzip -Z1 "$zipfile")
+          done < <(
+            find . -type f -iname '*.zip' \
+              -not -path './.git/*' -print0
+          )
+
+          if [ "$count" -eq 0 ]; then
+            echo "::error::Nenhum JAR encontrado nos ZIPs."
+            exit 1
+          fi
+
+          echo "Total de arquivos JAR: $count"
+
+      - name: Publicar JAR para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-minecraft-1.12.2
+          path: resultado/*.jar
+          if-no-files-found: error
+          retention-days: 14
