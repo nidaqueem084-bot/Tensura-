@@ -42,7 +42,9 @@ jobs:
           fi
           printf '\nrepositories {\n    maven { url "https://bmclapi2.bangbang93.com/maven" }\n}\n' >> build.gradle
           grep -n "version = " build.gradle
-
+      - name: Corrigir nomes de metodos
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: grep -rl setUnlocalizedName src | xargs -r sed -i 's/setUnlocalizedName/setTranslationKey/g'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
