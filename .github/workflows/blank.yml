@@ -20,6 +20,29 @@ jobs:
           if [ -z "$f" ]; then echo "build.gradle do mod nao encontrado"; ls -R | head -50; exit 1; fi
           echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
 
+      - name: Procurar versao do Forge com userdev
+        id: forge
+        run: |
+          best=""
+          for v in 2860 2859 2858 2857 2856 2855 2854 2853 2852 2851 2850 2847; do
+            for h in https://maven.minecraftforge.net https://bmclapi2.bangbang93.com/maven; do
+              c=$(curl -s -o /dev/null -I -L -m 30 -w '%{http_code}' "$h/net/minecraftforge/forge/1.12.2-14.23.5.$v/forge-1.12.2-14.23.5.$v-userdev.jar")
+              echo "$v $h -> $c"
+              if [ "$c" = "200" ] && [ -z "$best" ]; then best=$v; fi
+            done
+          done
+          echo "Escolhida: ${best:-nenhuma}"
+          echo "best=$best" >> "$GITHUB_OUTPUT"
+
+      - name: Ajustar build.gradle
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: |
+          if [ -n "${{ steps.forge.outputs.best }}" ]; then
+            sed -i "s/1\.12\.2-14\.23\.5\.[0-9]*/1.12.2-14.23.5.${{ steps.forge.outputs.best }}/" build.gradle
+          fi
+          printf '\nrepositories {\n    maven { url "https://bmclapi2.bangbang93.com/maven" }\n}\n' >> build.gradle
+          grep -n "version = " build.gradle
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
